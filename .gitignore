@@ -19,6 +19,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Virtual environments
 .venv/
@@ -30,9 +33,13 @@ ENV/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
 # Output (generated reports)
 output/
 
 # Environment
 .env
+
+# Keep .env.example tracked
+!.env.example
