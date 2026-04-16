@@ -173,6 +173,13 @@ def generate_gap_report(
             if gap.recommendation:
                 lines.append(f"**Recommendation:** {gap.recommendation}")
                 lines.append("")
+            if gap.affected_endpoints:
+                lines.append("**Affected Endpoints:**")
+                for ep in gap.affected_endpoints[:10]:  # Limit to first 10
+                    lines.append(f"- `{ep}`")
+                if len(gap.affected_endpoints) > 10:
+                    lines.append(f"- ... and {len(gap.affected_endpoints) - 10} more")
+                lines.append("")
 
     # Info
     if gap_report.info:
