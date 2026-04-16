@@ -11,12 +11,16 @@ from typing import Optional
 from ..models.endpoint import DocumentedEndpoint
 
 
-def parse_openapi_spec(spec_file: Path) -> list[DocumentedEndpoint]:
+def parse_openapi_spec(
+    spec_file: Path,
+    include_internal: bool = False,
+) -> list[DocumentedEndpoint]:
     """
     Parse an OpenAPI spec file and extract all documented endpoints.
 
     Args:
         spec_file: Path to the OpenAPI spec (JSON or YAML)
+        include_internal: If False (default), exclude endpoints marked with x-internal
 
     Returns:
         List of DocumentedEndpoint objects
@@ -41,6 +45,12 @@ def parse_openapi_spec(spec_file: Path) -> list[DocumentedEndpoint]:
         for method in ["get", "post", "put", "patch", "delete"]:
             if method in path_item:
                 operation = path_item[method]
+                is_internal = bool(operation.get("x-internal", False))
+
+                # Skip internal endpoints unless explicitly requested
+                if is_internal and not include_internal:
+                    continue
+
                 endpoint = DocumentedEndpoint(
                     method=method.upper(),
                     path=path,
@@ -52,6 +62,7 @@ def parse_openapi_spec(spec_file: Path) -> list[DocumentedEndpoint]:
                     request_body=operation.get("requestBody"),
                     responses=operation.get("responses", {}),
                     security=operation.get("security", []),
+                    is_internal=is_internal,
                 )
                 endpoints.append(endpoint)
 

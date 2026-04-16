@@ -4,11 +4,13 @@ Markdown report generators for API catalog and gap analysis.
 
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from ..models.endpoint import ParsedEndpoint, DocumentedEndpoint
 from ..models.scope import ScopeGroup
 from ..analyzers.gap_analyzer import GapReport
 from ..analyzers.scope_analyzer import ScopeReport
+from ..analyzers.docs_diff_analyzer import DocsDiffReport
 
 
 def generate_catalog_report(
@@ -99,6 +101,7 @@ def generate_gap_report(
     gap_report: GapReport,
     scope_report: ScopeReport,
     output_path: Path,
+    docs_diff: Optional[DocsDiffReport] = None,
 ) -> Path:
     """
     Generate the gap analysis report in Markdown.
@@ -107,6 +110,7 @@ def generate_gap_report(
         gap_report: Gap analysis results
         scope_report: Scope analysis results
         output_path: Directory to write the report
+        docs_diff: Optional comparison between local and published docs
 
     Returns:
         Path to the generated report file
@@ -210,6 +214,41 @@ def generate_gap_report(
         for scope in scope_report.missing_from_ui:
             lines.append(f"- `{scope}`")
         lines.append("")
+
+    # Published vs Local docs comparison
+    if docs_diff is not None:
+        lines.extend([
+            "---",
+            "",
+            "## Published vs Local Documentation",
+            "",
+            f"- **Local (public):** {docs_diff.local_count} endpoints",
+            f"- **Published:** {docs_diff.published_count} endpoints",
+            f"- **Matching:** {docs_diff.match_count} endpoints",
+            "",
+        ])
+
+        if docs_diff.local_only:
+            lines.append("### In Local Docs but NOT Published")
+            lines.append("")
+            lines.append("These endpoints are documented locally but not on the live site:")
+            lines.append("")
+            for ep in docs_diff.local_only:
+                lines.append(f"- `{ep}`")
+            lines.append("")
+
+        if docs_diff.published_only:
+            lines.append("### In Published Docs but NOT Local")
+            lines.append("")
+            lines.append("These endpoints are on the live site but not in local docs:")
+            lines.append("")
+            for ep in docs_diff.published_only:
+                lines.append(f"- `{ep}`")
+            lines.append("")
+
+        if not docs_diff.has_differences:
+            lines.append("**Local and published documentation are in sync.**")
+            lines.append("")
 
     # Recommendations summary
     lines.extend([

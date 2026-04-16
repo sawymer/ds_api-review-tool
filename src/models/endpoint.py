@@ -39,6 +39,7 @@ class DocumentedEndpoint:
     request_body: Optional[dict] = None
     responses: dict = field(default_factory=dict)
     security: list[dict] = field(default_factory=list)
+    is_internal: bool = False  # x-internal flag from OpenAPI spec
 
     @property
     def endpoint_id(self) -> str:

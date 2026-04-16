@@ -13,8 +13,8 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from .parsers import parse_laravel_routes, parse_openapi_spec, parse_angular_scopes
-from .analyzers import analyze_gaps, analyze_scopes
+from .parsers import parse_laravel_routes, parse_openapi_spec, parse_angular_scopes, parse_published_spec
+from .analyzers import analyze_gaps, analyze_scopes, analyze_docs_diff
 from .reporters import (
     generate_catalog_report,
     generate_gap_report,
@@ -106,11 +106,14 @@ def analyze(
     console.print(f"  Found [green]{len(endpoints)}[/green] endpoints")
 
     # Parse OpenAPI spec (optional)
+    # Include internal endpoints when comparing routes to docs
     documented_endpoints = []
     if openapi.exists():
         console.print(f"[dim]Parsing OpenAPI spec from:[/dim] {openapi}")
-        documented_endpoints = parse_openapi_spec(openapi)
-        console.print(f"  Found [green]{len(documented_endpoints)}[/green] documented endpoints")
+        documented_endpoints = parse_openapi_spec(openapi, include_internal=True)
+        internal_count = sum(1 for e in documented_endpoints if e.is_internal)
+        public_count = len(documented_endpoints) - internal_count
+        console.print(f"  Found [green]{len(documented_endpoints)}[/green] documented endpoints ({public_count} public, {internal_count} internal)")
     else:
         console.print(f"[yellow]Warning:[/yellow] OpenAPI spec not found: {openapi}")
         console.print("  Run: sail artisan l5-swagger:generate")
@@ -124,6 +127,16 @@ def analyze(
     else:
         console.print(f"[yellow]Warning:[/yellow] UI config not found: {ui_config}")
 
+    # Fetch published docs for comparison
+    console.print(f"[dim]Fetching published docs from:[/dim] https://api.doorspot.com/docs")
+    published_endpoints = parse_published_spec()
+    docs_diff = None
+    if published_endpoints:
+        console.print(f"  Found [green]{len(published_endpoints)}[/green] published endpoints")
+        docs_diff = analyze_docs_diff(documented_endpoints, published_endpoints)
+    else:
+        console.print(f"  [yellow]Warning:[/yellow] Could not fetch published docs")
+
     # Analyze
     console.print()
     console.print("[bold]Analyzing...[/bold]")
@@ -134,6 +147,19 @@ def analyze(
     # Print summary to console
     print_summary(endpoints, gap_report, scope_report)
 
+    # Print docs diff summary
+    if docs_diff:
+        if docs_diff.has_differences:
+            console.print()
+            console.print("[bold yellow]Published vs Local Docs Differences:[/bold yellow]")
+            if docs_diff.local_only:
+                console.print(f"  [yellow]Local only:[/yellow] {len(docs_diff.local_only)} endpoints")
+            if docs_diff.published_only:
+                console.print(f"  [yellow]Published only:[/yellow] {len(docs_diff.published_only)} endpoints")
+        else:
+            console.print()
+            console.print("[green]Published and local docs are in sync.[/green]")
+
     # Generate reports
     console.print()
     console.print("[bold]Generating reports...[/bold]")
@@ -143,7 +169,7 @@ def analyze(
     catalog_file = generate_catalog_report(endpoints, documented_endpoints, scope_report, output)
     console.print(f"  [green]Catalog:[/green] {catalog_file}")
 
-    gap_file = generate_gap_report(gap_report, scope_report, output)
+    gap_file = generate_gap_report(gap_report, scope_report, output, docs_diff=docs_diff)
     console.print(f"  [green]Gaps:[/green] {gap_file}")
 
     ui_scopes = set()
@@ -184,10 +210,10 @@ def catalog(
     endpoints = parse_laravel_routes(routes)
     console.print(f"Found [green]{len(endpoints)}[/green] endpoints")
 
-    # Try to load OpenAPI spec
+    # Try to load OpenAPI spec (include internal for routes comparison)
     documented_endpoints = []
     if DEFAULT_OPENAPI.exists():
-        documented_endpoints = parse_openapi_spec(DEFAULT_OPENAPI)
+        documented_endpoints = parse_openapi_spec(DEFAULT_OPENAPI, include_internal=True)
 
     ui_scope_groups = []
     if DEFAULT_UI_CONFIG.exists():
@@ -228,10 +254,10 @@ def gaps(
     endpoints = parse_laravel_routes(routes)
     console.print(f"Found [green]{len(endpoints)}[/green] endpoints")
 
-    # Load other sources
+    # Load other sources (include internal for routes comparison)
     documented_endpoints = []
     if DEFAULT_OPENAPI.exists():
-        documented_endpoints = parse_openapi_spec(DEFAULT_OPENAPI)
+        documented_endpoints = parse_openapi_spec(DEFAULT_OPENAPI, include_internal=True)
 
     ui_scope_groups = []
     if DEFAULT_UI_CONFIG.exists():
