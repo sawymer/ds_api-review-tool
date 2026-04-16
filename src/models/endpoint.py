@@ -17,8 +17,8 @@ class ParsedEndpoint:
 
     @property
     def endpoint_id(self) -> str:
-        """Unique identifier for this endpoint."""
-        return f"{self.method} {self.full_path}"
+        """Unique identifier for this endpoint (without /api/v1 prefix for comparison)."""
+        return f"{self.method} {self.path}"
 
     @property
     def requires_write_scope(self) -> bool:

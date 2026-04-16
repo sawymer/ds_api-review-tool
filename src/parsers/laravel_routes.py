@@ -109,19 +109,22 @@ def _parse_route_block(block: str, line_num: int, current_prefix: str) -> Parsed
     middleware_matches = re.findall(r"->middleware\s*\(\s*['\"]([^'\"]+)['\"]", normalized)
     middleware = middleware_matches
 
-    # Build full path
+    # Build normalized path (without /api/v1 prefix, for OpenAPI comparison)
     if current_prefix:
-        full_path = f"/api/v1/{current_prefix}/{path}".replace("//", "/")
+        normalized_path = f"/{current_prefix}/{path}".replace("//", "/")
     else:
-        full_path = f"/api/v1/{path}".replace("//", "/")
+        normalized_path = f"/{path}" if not path.startswith("/") else path
 
-    # Clean trailing slashes (but keep root)
-    if full_path.endswith("/") and len(full_path) > 8:
-        full_path = full_path.rstrip("/")
+    # Clean trailing slashes (but keep root /)
+    if normalized_path.endswith("/") and len(normalized_path) > 1:
+        normalized_path = normalized_path.rstrip("/")
+
+    # Build full path (with /api/v1 prefix)
+    full_path = f"/api/v1{normalized_path}"
 
     return ParsedEndpoint(
         method=method,
-        path=path,
+        path=normalized_path,
         full_path=full_path,
         controller=controller,
         action=action,
